@@ -1,0 +1,14 @@
+{
+  "name": "accounts_module",
+  "version": "1.0.0",
+  "description": "Accounts module using go-wallet-sdk C library",
+  "author": "Logos Core Team",
+  "type": "core",
+  "category": "accounts",
+  "main": "accounts_module_plugin",
+  "dependencies": [],
+  "include": ["libgowalletsdk.so", "libgowalletsdk.dylib", "libgowalletsdk.dll"],
+  "capabilities": []
+}
+
+
