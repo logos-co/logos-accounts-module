@@ -117,15 +117,15 @@ endif()
 # Find required packages
 find_package(Threads REQUIRED)
 find_package(absl QUIET)
-find_library(LIBACCOUNTS_PATH
-    NAMES libgowalletsdk.so libgowalletsdk.dylib libgowalletsdk.dll
+find_library(LIBGOWALLETSDK
+    NAMES libgowalletsdk.a libgowalletsdk.lib
     PATHS 
     ${CMAKE_CURRENT_SOURCE_DIR}/lib
     NO_DEFAULT_PATH
 )
 
-if(NOT LIBACCOUNTS_PATH)
-    message(WARNING "Accounts C library not found in lib/. Build it via build_accounts_lib.sh before linking.")
+if(NOT LIBGOWALLETSDK)
+    message(WARNING "go-wallet-sdk C library not found in lib/. Build it before linking.")
 endif()
 
 # Plugin sources
@@ -207,9 +207,24 @@ if(absl_FOUND)
     )
 endif()
 
-# Link the accounts C library if present
-if(LIBACCOUNTS_PATH)
-    target_link_libraries(accounts_module_plugin PRIVATE ${LIBACCOUNTS_PATH})
+# Link against macos frameworks
+if(APPLE)
+    target_link_libraries(accounts_module_plugin PUBLIC "-framework CoreFoundation")
+    target_link_libraries(accounts_module_plugin PUBLIC "-framework Security")
+    set_target_properties(accounts_module_plugin PROPERTIES LINK_FLAGS "-Wl,-F/Library/Frameworks")
+endif()
+
+# Link the go-wallet-sdk C library if present
+if(LIBGOWALLETSDK)
+    target_link_libraries(accounts_module_plugin PRIVATE ${LIBGOWALLETSDK})
+
+    if(APPLE)
+        # macOS specific settings
+        target_link_options(accounts_module_plugin PRIVATE -Wl,-force_load ${LIBGOWALLETSDK})
+    else()
+        # Linux specific settings
+        target_link_options(accounts_module_plugin PRIVATE -Wl,--whole-archive ${LIBGOWALLETSDK} -Wl,--no-whole-archive)
+    endif()
 endif()
 
 # Include directories
@@ -256,42 +271,15 @@ if(APPLE)
         INSTALL_NAME_DIR "@rpath"
         BUILD_WITH_INSTALL_NAME_DIR TRUE)
 
-    # If libgowalletsdk exists, copy and fix install names
-    if(LIBACCOUNTS_PATH)
-        add_custom_command(TARGET accounts_module_plugin PRE_LINK
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${LIBACCOUNTS_PATH}
-            ${CMAKE_BINARY_DIR}/modules/libgowalletsdk.dylib
-            COMMENT "Copying libgowalletsdk to modules directory"
-            VERBATIM
-        )
-
-        add_custom_command(TARGET accounts_module_plugin POST_BUILD
-            COMMAND install_name_tool -id "@rpath/accounts_module_plugin.dylib" $<TARGET_FILE:accounts_module_plugin>
-            COMMAND ${CMAKE_COMMAND} -DWALLET_LIB_PATH=${CMAKE_BINARY_DIR}/modules/libgowalletsdk.dylib -DPLUGIN_PATH=${CMAKE_BINARY_DIR}/modules/accounts_module_plugin.dylib -P ${CMAKE_CURRENT_SOURCE_DIR}/fix_wallet_install_name.cmake
-            COMMENT "Updating library paths for macOS"
-        )
-    else()
-        add_custom_command(TARGET accounts_module_plugin POST_BUILD
-            COMMAND install_name_tool -id "@rpath/accounts_module_plugin.dylib" $<TARGET_FILE:accounts_module_plugin>
-            COMMENT "Updating library paths for macOS (accounts library not found)"
-        )
-    endif()
+    add_custom_command(TARGET accounts_module_plugin POST_BUILD
+        COMMAND install_name_tool -id "@rpath/accounts_module_plugin.dylib" $<TARGET_FILE:accounts_module_plugin>
+        COMMENT "Updating library paths for macOS (accounts library not found)"
+    )
 else()
     # Linux specific settings
     set_target_properties(accounts_module_plugin PROPERTIES
         INSTALL_RPATH "$ORIGIN"
         INSTALL_RPATH_USE_LINK_PATH FALSE)
-
-    # First, copy libgowalletsdk.so to the modules directory if present
-    if(LIBACCOUNTS_PATH)
-        add_custom_command(TARGET accounts_module_plugin PRE_LINK
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${LIBACCOUNTS_PATH}
-            ${CMAKE_BINARY_DIR}/modules/libgowalletsdk.so
-            COMMENT "Copying libgowalletsdk.so to modules directory"
-        )
-    endif()
 endif()
 
 install(TARGETS accounts_module_plugin
@@ -308,13 +296,6 @@ install(DIRECTORY "${PLUGINS_OUTPUT_DIR}/"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/logos-accounts-module/generated
     OPTIONAL
 )
-
-# Install the accounts library if it exists
-if(LIBACCOUNTS_PATH)
-    install(FILES ${LIBACCOUNTS_PATH}
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/logos/modules
-    )
-endif()
 
 # Print status messages
 message(STATUS "Accounts Plugin configured successfully")

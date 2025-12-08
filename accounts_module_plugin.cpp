@@ -14,6 +14,10 @@ AccountsModulePlugin::AccountsModulePlugin() : keystoreHandle(0), extkeystoreHan
 
 AccountsModulePlugin::~AccountsModulePlugin()
 {
+    if (logosAPI) {
+        delete logosAPI;
+        logosAPI = nullptr;
+    }
     if (keystoreHandle != 0) {
         GoWSK_accounts_keystore_CloseKeyStore(keystoreHandle);
         keystoreHandle = 0;
@@ -26,8 +30,10 @@ AccountsModulePlugin::~AccountsModulePlugin()
 
 void AccountsModulePlugin::initLogos(LogosAPI* logosAPIInstance)
 {
-    Q_UNUSED(logosAPIInstance);
-    // Store logosAPI instance if needed
+    if (logosAPI) {
+        delete logosAPI;
+    }
+    logosAPI = logosAPIInstance;
 }
 
 void AccountsModulePlugin::simple_callback(int callerRet, const char* msg, size_t len, void* userData)

@@ -7,7 +7,7 @@
   "category": "accounts",
   "main": "accounts_module_plugin",
   "dependencies": [],
-  "include": ["libgowalletsdk.so", "libgowalletsdk.dylib", "libgowalletsdk.dll"],
+  "include": [],
   "capabilities": []
 }
 
