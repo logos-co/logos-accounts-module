@@ -7,7 +7,7 @@
     logos-cpp-sdk.url = "github:logos-co/logos-cpp-sdk";
     logos-liblogos.url = "github:logos-co/logos-liblogos";
     go-wallet-sdk = {
-      url = "github:status-im/go-wallet-sdk/a69a0b32a831d97e3c6b74d2bbeadfb17628e4e8";
+      url = "github:status-im/go-wallet-sdk/ddd7d9d523ba44a34f1e57f2f0535a0157a1dd92";
       flake = false;
     };
   };
@@ -74,7 +74,7 @@
           shellHook = ''
             export LOGOS_CPP_SDK_ROOT="${logosSdk}"
             export LOGOS_LIBLOGOS_ROOT="${logosLiblogos}"
-            echo "Logos Wallet Module development environment"
+            echo "Logos Accounts Module development environment"
             echo "LOGOS_CPP_SDK_ROOT: $LOGOS_CPP_SDK_ROOT"
             echo "LOGOS_LIBLOGOS_ROOT: $LOGOS_LIBLOGOS_ROOT"
           '';
