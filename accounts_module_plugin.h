@@ -73,7 +73,7 @@ public:
     // Mnemonic operations
     Q_INVOKABLE QString createRandomMnemonic(int length) override;
     Q_INVOKABLE QString createRandomMnemonicWithDefaultLength() override;
-    Q_INVOKABLE uint32_t lengthToEntropyStrength(int length) override;
+    Q_INVOKABLE int lengthToEntropyStrength(int length) override;
 
     QString name() const override { return "accounts_module"; }
     QString version() const override { return "1.0.0"; }

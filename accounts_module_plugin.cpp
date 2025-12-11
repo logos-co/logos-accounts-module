@@ -1015,7 +1015,7 @@ QString AccountsModulePlugin::createRandomMnemonicWithDefaultLength()
     return result;
 }
 
-uint32_t AccountsModulePlugin::lengthToEntropyStrength(int length)
+int AccountsModulePlugin::lengthToEntropyStrength(int length)
 {
     qDebug() << "AccountsModulePlugin::lengthToEntropyStrength" << length;
     char* err = nullptr;
@@ -1026,5 +1026,5 @@ uint32_t AccountsModulePlugin::lengthToEntropyStrength(int length)
         qWarning() << "AccountsModulePlugin: LengthToEntropyStrength error:" << emsg;
         return 0;
     }
-    return result;
+    return int(result);
 }
