@@ -21,7 +21,7 @@ public:
 
 
     // Keystore operations
-    Q_INVOKABLE bool initKeystore(const QString &dir, int scryptN, int scryptP) override;
+    Q_INVOKABLE bool initKeystore(const QString &dir, uint scryptN, uint scryptP) override;
     Q_INVOKABLE bool closeKeystore(const QString &privateKey) override;
     Q_INVOKABLE QStringList keystoreAccounts() override;
     Q_INVOKABLE QString keystoreNewAccount(const QString &passphrase) override;
@@ -41,7 +41,7 @@ public:
     Q_INVOKABLE QString keystoreFind(const QString &address, const QString &url) override;
 
     // Extended keystore operations
-    Q_INVOKABLE bool initExtKeystore(const QString &dir, int scryptN, int scryptP) override;
+    Q_INVOKABLE bool initExtKeystore(const QString &dir, uint scryptN, uint scryptP) override;
     Q_INVOKABLE bool closeExtKeystore() override;
     Q_INVOKABLE QStringList extKeystoreAccounts() override;
     Q_INVOKABLE QString extKeystoreNewAccount(const QString &passphrase) override;

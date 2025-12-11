@@ -11,7 +11,7 @@ public:
     virtual ~AccountsModuleInterface() {}
 
     // Keystore operations
-    Q_INVOKABLE virtual bool initKeystore(const QString &dir, int scryptN, int scryptP) = 0;
+    Q_INVOKABLE virtual bool initKeystore(const QString &dir, uint scryptN, uint scryptP) = 0;
     Q_INVOKABLE virtual bool closeKeystore(const QString &privateKey) = 0;
     Q_INVOKABLE virtual QStringList keystoreAccounts() = 0;
     Q_INVOKABLE virtual QString keystoreNewAccount(const QString &passphrase) = 0;
@@ -31,7 +31,7 @@ public:
     Q_INVOKABLE virtual QString keystoreFind(const QString &address, const QString &url) = 0;
 
     // Extended keystore operations
-    Q_INVOKABLE virtual bool initExtKeystore(const QString &dir, int scryptN, int scryptP) = 0;
+    Q_INVOKABLE virtual bool initExtKeystore(const QString &dir, uint scryptN, uint scryptP) = 0;
     Q_INVOKABLE virtual bool closeExtKeystore() = 0;
     Q_INVOKABLE virtual QStringList extKeystoreAccounts() = 0;
     Q_INVOKABLE virtual QString extKeystoreNewAccount(const QString &passphrase) = 0;

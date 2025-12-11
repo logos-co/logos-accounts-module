@@ -47,7 +47,7 @@ void AccountsModulePlugin::simple_callback(int callerRet, const char* msg, size_
 }
 
 // Keystore operations
-bool AccountsModulePlugin::initKeystore(const QString &dir, int scryptN, int scryptP)
+bool AccountsModulePlugin::initKeystore(const QString &dir, uint scryptN, uint scryptP)
 {
     qDebug() << "AccountsModulePlugin::initKeystore" << dir << scryptN << scryptP;
     if (keystoreHandle != 0) {
@@ -437,7 +437,7 @@ QString AccountsModulePlugin::keystoreFind(const QString &address, const QString
 }
 
 // Extended keystore operations
-bool AccountsModulePlugin::initExtKeystore(const QString &dir, int scryptN, int scryptP)
+bool AccountsModulePlugin::initExtKeystore(const QString &dir, uint scryptN, uint scryptP)
 {
     qDebug() << "AccountsModulePlugin::initExtKeystore" << dir << scryptN << scryptP;
     if (extkeystoreHandle != 0) {
