@@ -103,11 +103,22 @@ QStringList AccountsModulePlugin::keystoreAccounts()
         qWarning() << "AccountsModulePlugin: Failed to parse accounts JSON:" << parseError.errorString();
         return QStringList();
     }
+    if (doc.isNull()) {
+        qWarning() << "AccountsModulePlugin: Failed to parse accounts JSON: null";
+        return QStringList();
+    }
+    if (!doc.isArray()) {
+        qWarning() << "AccountsModulePlugin: Failed to parse accounts JSON: not an array";
+        return QStringList();
+    }
+
     QStringList addresses;
     if (doc.isArray()) {
         for (const QJsonValue &value : doc.array()) {
-            if (value.isString()) {
-                addresses.append(value.toString());
+            if (value.isObject()) {
+                QJsonObject obj = value.toObject();
+                QJsonDocument doc(obj);
+                addresses.append(doc.toJson(QJsonDocument::Compact));
             }
         }
     }
@@ -489,14 +500,25 @@ QStringList AccountsModulePlugin::extKeystoreAccounts()
     QJsonParseError parseError;
     QJsonDocument doc = QJsonDocument::fromJson(result.toUtf8(), &parseError);
     if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "AccountsModulePlugin: Failed to parse ext accounts JSON:" << parseError.errorString();
+        qWarning() << "AccountsModulePlugin: Failed to parse accounts JSON:" << parseError.errorString();
         return QStringList();
     }
+    if (doc.isNull()) {
+        qWarning() << "AccountsModulePlugin: Failed to parse accounts JSON: null";
+        return QStringList();
+    }
+    if (!doc.isArray()) {
+        qWarning() << "AccountsModulePlugin: Failed to parse accounts JSON: not an array";
+        return QStringList();
+    }
+
     QStringList addresses;
     if (doc.isArray()) {
         for (const QJsonValue &value : doc.array()) {
-            if (value.isString()) {
-                addresses.append(value.toString());
+            if (value.isObject()) {
+                QJsonObject obj = value.toObject();
+                QJsonDocument doc(obj);
+                addresses.append(doc.toJson(QJsonDocument::Compact));
             }
         }
     }
