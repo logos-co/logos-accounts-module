@@ -63,7 +63,7 @@ public:
     // Mnemonic operations
     Q_INVOKABLE virtual QString createRandomMnemonic(int length) = 0;
     Q_INVOKABLE virtual QString createRandomMnemonicWithDefaultLength() = 0;
-    Q_INVOKABLE virtual uint32_t lengthToEntropyStrength(int length) = 0;
+    Q_INVOKABLE virtual int lengthToEntropyStrength(int length) = 0;
 
 signals:
     void eventResponse(const QString& eventName, const QVariantList& data);
