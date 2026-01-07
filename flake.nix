@@ -51,7 +51,8 @@
           # Individual outputs
           logos-accounts-module-lib = lib;
           logos-accounts-module-include = include;
-          
+          lib = lib;
+
           # Default package (combined)
           default = combined;
         }
