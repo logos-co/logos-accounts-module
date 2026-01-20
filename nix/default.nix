@@ -6,9 +6,9 @@
   version = "1.0.0";
   
   # Common native build inputs
-  nativeBuildInputs = [ 
-    pkgs.cmake 
-    pkgs.ninja 
+  nativeBuildInputs = [
+    pkgs.cmake
+    pkgs.ninja
     pkgs.pkg-config
     pkgs.qt6.wrapQtAppsNoGuiHook
     pkgs.go
