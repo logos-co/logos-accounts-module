@@ -19,6 +19,9 @@
         "output_pattern": "build/libgowalletsdk.*"
       }
     ],
+    "packages": {
+      "runtime": ["nlohmann_json"]
+    },
     "cmake": {
       "find_packages": ["Threads"],
       "extra_include_dirs": ["lib"]

@@ -1,13 +1,10 @@
 #include "accounts_module_impl.h"
-#include <QtCore/QDebug>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QJsonObject>
-#include <QtCore/QJsonArray>
-#include <QtCore/QJsonParseError>
+#include <cstdio>
+#include <nlohmann/json.hpp>
 
 AccountsModuleImpl::AccountsModuleImpl() : keystoreHandle(0), extkeystoreHandle(0)
 {
-    qDebug() << "AccountsModuleImpl: Initializing...";
+    fprintf(stderr, "AccountsModuleImpl: Initializing...\n");
 }
 
 AccountsModuleImpl::~AccountsModuleImpl()
@@ -25,25 +22,19 @@ AccountsModuleImpl::~AccountsModuleImpl()
 std::vector<std::string> AccountsModuleImpl::parseAccountsJson(const char* jsonStr)
 {
     std::vector<std::string> addresses;
-    QString result = QString::fromUtf8(jsonStr);
-
-    QJsonParseError parseError;
-    QJsonDocument doc = QJsonDocument::fromJson(result.toUtf8(), &parseError);
-    if (parseError.error != QJsonParseError::NoError) {
-        qWarning() << "AccountsModuleImpl: Failed to parse accounts JSON:" << parseError.errorString();
-        return addresses;
-    }
-    if (doc.isNull() || !doc.isArray()) {
-        qWarning() << "AccountsModuleImpl: Failed to parse accounts JSON: not an array";
-        return addresses;
-    }
-
-    for (const QJsonValue &value : doc.array()) {
-        if (value.isObject()) {
-            QJsonObject obj = value.toObject();
-            QJsonDocument objDoc(obj);
-            addresses.push_back(objDoc.toJson(QJsonDocument::Compact).toStdString());
+    try {
+        auto doc = nlohmann::json::parse(jsonStr);
+        if (!doc.is_array()) {
+            fprintf(stderr, "AccountsModuleImpl: Failed to parse accounts JSON: not an array\n");
+            return addresses;
         }
+        for (const auto& value : doc) {
+            if (value.is_object()) {
+                addresses.push_back(value.dump());
+            }
+        }
+    } catch (const nlohmann::json::parse_error& e) {
+        fprintf(stderr, "AccountsModuleImpl: Failed to parse accounts JSON: %s\n", e.what());
     }
     return addresses;
 }
@@ -52,7 +43,7 @@ std::vector<std::string> AccountsModuleImpl::parseAccountsJson(const char* jsonS
 
 bool AccountsModuleImpl::initKeystore(const std::string& dir, int64_t scryptN, int64_t scryptP)
 {
-    qDebug() << "AccountsModuleImpl::initKeystore" << dir.c_str() << scryptN << scryptP;
+    fprintf(stderr, "AccountsModuleImpl::initKeystore %s %lld %lld\n", dir.c_str(), (long long)scryptN, (long long)scryptP);
     if (keystoreHandle != 0) {
         GoWSK_accounts_keystore_CloseKeyStore(keystoreHandle);
     }
@@ -62,17 +53,17 @@ bool AccountsModuleImpl::initKeystore(const std::string& dir, int64_t scryptN, i
     if (keystoreHandle == 0) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Failed to create keystore:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Failed to create keystore: %s\n", emsg.c_str());
         return false;
     }
-    qDebug() << "AccountsModuleImpl: Keystore created: handle=" << (qulonglong)keystoreHandle;
+    fprintf(stderr, "AccountsModuleImpl: Keystore created: handle=%llu\n", (unsigned long long)keystoreHandle);
     return true;
 }
 
 bool AccountsModuleImpl::closeKeystore(const std::string& privateKey)
 {
-    Q_UNUSED(privateKey);
-    qDebug() << "AccountsModuleImpl::closeKeystore";
+    (void)privateKey;
+    fprintf(stderr, "AccountsModuleImpl::closeKeystore\n");
     if (keystoreHandle != 0) {
         GoWSK_accounts_keystore_CloseKeyStore(keystoreHandle);
         keystoreHandle = 0;
@@ -83,9 +74,9 @@ bool AccountsModuleImpl::closeKeystore(const std::string& privateKey)
 
 std::vector<std::string> AccountsModuleImpl::keystoreAccounts()
 {
-    qDebug() << "AccountsModuleImpl::keystoreAccounts";
+    fprintf(stderr, "AccountsModuleImpl::keystoreAccounts\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -93,7 +84,7 @@ std::vector<std::string> AccountsModuleImpl::keystoreAccounts()
     if (accountsJson == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Accounts error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Accounts error: %s\n", emsg.c_str());
         return {};
     }
     auto result = parseAccountsJson(accountsJson);
@@ -103,9 +94,9 @@ std::vector<std::string> AccountsModuleImpl::keystoreAccounts()
 
 std::string AccountsModuleImpl::keystoreNewAccount(const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreNewAccount";
+    fprintf(stderr, "AccountsModuleImpl::keystoreNewAccount\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -114,7 +105,7 @@ std::string AccountsModuleImpl::keystoreNewAccount(const std::string& passphrase
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: NewAccount error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: NewAccount error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -124,9 +115,9 @@ std::string AccountsModuleImpl::keystoreNewAccount(const std::string& passphrase
 
 std::string AccountsModuleImpl::keystoreImport(const std::string& keyJSON, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreImport";
+    fprintf(stderr, "AccountsModuleImpl::keystoreImport\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -136,7 +127,7 @@ std::string AccountsModuleImpl::keystoreImport(const std::string& keyJSON, const
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Import error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Import error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -146,9 +137,9 @@ std::string AccountsModuleImpl::keystoreImport(const std::string& keyJSON, const
 
 std::string AccountsModuleImpl::keystoreExport(const std::string& address, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreExport";
+    fprintf(stderr, "AccountsModuleImpl::keystoreExport\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -158,7 +149,7 @@ std::string AccountsModuleImpl::keystoreExport(const std::string& address, const
     if (keyJson == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Export error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Export error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(keyJson);
@@ -168,9 +159,9 @@ std::string AccountsModuleImpl::keystoreExport(const std::string& address, const
 
 bool AccountsModuleImpl::keystoreDelete(const std::string& address, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreDelete";
+    fprintf(stderr, "AccountsModuleImpl::keystoreDelete\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -180,7 +171,7 @@ bool AccountsModuleImpl::keystoreDelete(const std::string& address, const std::s
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Delete error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Delete error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -188,9 +179,9 @@ bool AccountsModuleImpl::keystoreDelete(const std::string& address, const std::s
 
 bool AccountsModuleImpl::keystoreHasAddress(const std::string& address)
 {
-    qDebug() << "AccountsModuleImpl::keystoreHasAddress";
+    fprintf(stderr, "AccountsModuleImpl::keystoreHasAddress\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -199,7 +190,7 @@ bool AccountsModuleImpl::keystoreHasAddress(const std::string& address)
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: HasAddress error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: HasAddress error: %s\n", emsg.c_str());
         return false;
     }
     return result != 0;
@@ -207,9 +198,9 @@ bool AccountsModuleImpl::keystoreHasAddress(const std::string& address)
 
 bool AccountsModuleImpl::keystoreUnlock(const std::string& address, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreUnlock";
+    fprintf(stderr, "AccountsModuleImpl::keystoreUnlock\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -219,7 +210,7 @@ bool AccountsModuleImpl::keystoreUnlock(const std::string& address, const std::s
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Unlock error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Unlock error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -227,9 +218,9 @@ bool AccountsModuleImpl::keystoreUnlock(const std::string& address, const std::s
 
 bool AccountsModuleImpl::keystoreLock(const std::string& address)
 {
-    qDebug() << "AccountsModuleImpl::keystoreLock";
+    fprintf(stderr, "AccountsModuleImpl::keystoreLock\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -238,7 +229,7 @@ bool AccountsModuleImpl::keystoreLock(const std::string& address)
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Lock error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Lock error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -246,9 +237,9 @@ bool AccountsModuleImpl::keystoreLock(const std::string& address)
 
 bool AccountsModuleImpl::keystoreTimedUnlock(const std::string& address, const std::string& passphrase, uint64_t timeoutSeconds)
 {
-    qDebug() << "AccountsModuleImpl::keystoreTimedUnlock";
+    fprintf(stderr, "AccountsModuleImpl::keystoreTimedUnlock\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -259,7 +250,7 @@ bool AccountsModuleImpl::keystoreTimedUnlock(const std::string& address, const s
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: TimedUnlock error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: TimedUnlock error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -267,9 +258,9 @@ bool AccountsModuleImpl::keystoreTimedUnlock(const std::string& address, const s
 
 bool AccountsModuleImpl::keystoreUpdate(const std::string& address, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreUpdate";
+    fprintf(stderr, "AccountsModuleImpl::keystoreUpdate\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -279,7 +270,7 @@ bool AccountsModuleImpl::keystoreUpdate(const std::string& address, const std::s
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Update error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Update error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -287,9 +278,9 @@ bool AccountsModuleImpl::keystoreUpdate(const std::string& address, const std::s
 
 std::string AccountsModuleImpl::keystoreSignHash(const std::string& address, const std::string& hashHex)
 {
-    qDebug() << "AccountsModuleImpl::keystoreSignHash";
+    fprintf(stderr, "AccountsModuleImpl::keystoreSignHash\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -299,7 +290,7 @@ std::string AccountsModuleImpl::keystoreSignHash(const std::string& address, con
     if (signature == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: SignHash error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: SignHash error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signature);
@@ -309,9 +300,9 @@ std::string AccountsModuleImpl::keystoreSignHash(const std::string& address, con
 
 std::string AccountsModuleImpl::keystoreSignHashWithPassphrase(const std::string& address, const std::string& passphrase, const std::string& hashHex)
 {
-    qDebug() << "AccountsModuleImpl::keystoreSignHashWithPassphrase";
+    fprintf(stderr, "AccountsModuleImpl::keystoreSignHashWithPassphrase\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -321,7 +312,7 @@ std::string AccountsModuleImpl::keystoreSignHashWithPassphrase(const std::string
     if (signature == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: SignHashWithPassphrase error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: SignHashWithPassphrase error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signature);
@@ -331,9 +322,9 @@ std::string AccountsModuleImpl::keystoreSignHashWithPassphrase(const std::string
 
 std::string AccountsModuleImpl::keystoreImportECDSA(const std::string& privateKeyHex, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::keystoreImportECDSA";
+    fprintf(stderr, "AccountsModuleImpl::keystoreImportECDSA\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -343,7 +334,7 @@ std::string AccountsModuleImpl::keystoreImportECDSA(const std::string& privateKe
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ImportECDSA error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ImportECDSA error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -353,9 +344,9 @@ std::string AccountsModuleImpl::keystoreImportECDSA(const std::string& privateKe
 
 std::string AccountsModuleImpl::keystoreSignTx(const std::string& address, const std::string& txJSON, const std::string& chainIDHex)
 {
-    qDebug() << "AccountsModuleImpl::keystoreSignTx";
+    fprintf(stderr, "AccountsModuleImpl::keystoreSignTx\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -365,7 +356,7 @@ std::string AccountsModuleImpl::keystoreSignTx(const std::string& address, const
     if (signedTx == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: SignTx error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: SignTx error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signedTx);
@@ -375,9 +366,9 @@ std::string AccountsModuleImpl::keystoreSignTx(const std::string& address, const
 
 std::string AccountsModuleImpl::keystoreSignTxWithPassphrase(const std::string& address, const std::string& passphrase, const std::string& txJSON, const std::string& chainIDHex)
 {
-    qDebug() << "AccountsModuleImpl::keystoreSignTxWithPassphrase";
+    fprintf(stderr, "AccountsModuleImpl::keystoreSignTxWithPassphrase\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -388,7 +379,7 @@ std::string AccountsModuleImpl::keystoreSignTxWithPassphrase(const std::string& 
     if (signedTx == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: SignTxWithPassphrase error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: SignTxWithPassphrase error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signedTx);
@@ -398,9 +389,9 @@ std::string AccountsModuleImpl::keystoreSignTxWithPassphrase(const std::string& 
 
 std::string AccountsModuleImpl::keystoreFind(const std::string& address, const std::string& url)
 {
-    qDebug() << "AccountsModuleImpl::keystoreFind";
+    fprintf(stderr, "AccountsModuleImpl::keystoreFind\n");
     if (keystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -410,7 +401,7 @@ std::string AccountsModuleImpl::keystoreFind(const std::string& address, const s
     if (resultStr == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Find error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Find error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(resultStr);
@@ -422,7 +413,7 @@ std::string AccountsModuleImpl::keystoreFind(const std::string& address, const s
 
 bool AccountsModuleImpl::initExtKeystore(const std::string& dir, int64_t scryptN, int64_t scryptP)
 {
-    qDebug() << "AccountsModuleImpl::initExtKeystore" << dir.c_str() << scryptN << scryptP;
+    fprintf(stderr, "AccountsModuleImpl::initExtKeystore %s %lld %lld\n", dir.c_str(), (long long)scryptN, (long long)scryptP);
     if (extkeystoreHandle != 0) {
         GoWSK_accounts_extkeystore_CloseKeyStore(extkeystoreHandle);
     }
@@ -432,16 +423,16 @@ bool AccountsModuleImpl::initExtKeystore(const std::string& dir, int64_t scryptN
     if (extkeystoreHandle == 0) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: Failed to create ext keystore:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: Failed to create ext keystore: %s\n", emsg.c_str());
         return false;
     }
-    qDebug() << "AccountsModuleImpl: Ext keystore created: handle=" << (qulonglong)extkeystoreHandle;
+    fprintf(stderr, "AccountsModuleImpl: Ext keystore created: handle=%llu\n", (unsigned long long)extkeystoreHandle);
     return true;
 }
 
 bool AccountsModuleImpl::closeExtKeystore()
 {
-    qDebug() << "AccountsModuleImpl::closeExtKeystore";
+    fprintf(stderr, "AccountsModuleImpl::closeExtKeystore\n");
     if (extkeystoreHandle != 0) {
         GoWSK_accounts_extkeystore_CloseKeyStore(extkeystoreHandle);
         extkeystoreHandle = 0;
@@ -452,9 +443,9 @@ bool AccountsModuleImpl::closeExtKeystore()
 
 std::vector<std::string> AccountsModuleImpl::extKeystoreAccounts()
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreAccounts";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreAccounts\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -462,7 +453,7 @@ std::vector<std::string> AccountsModuleImpl::extKeystoreAccounts()
     if (accountsJson == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtAccounts error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtAccounts error: %s\n", emsg.c_str());
         return {};
     }
     auto result = parseAccountsJson(accountsJson);
@@ -472,9 +463,9 @@ std::vector<std::string> AccountsModuleImpl::extKeystoreAccounts()
 
 std::string AccountsModuleImpl::extKeystoreNewAccount(const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreNewAccount";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreNewAccount\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -483,7 +474,7 @@ std::string AccountsModuleImpl::extKeystoreNewAccount(const std::string& passphr
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtNewAccount error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtNewAccount error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -493,9 +484,9 @@ std::string AccountsModuleImpl::extKeystoreNewAccount(const std::string& passphr
 
 std::string AccountsModuleImpl::extKeystoreImport(const std::string& keyJSON, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreImport";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreImport\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -505,7 +496,7 @@ std::string AccountsModuleImpl::extKeystoreImport(const std::string& keyJSON, co
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtImport error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtImport error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -515,9 +506,9 @@ std::string AccountsModuleImpl::extKeystoreImport(const std::string& keyJSON, co
 
 std::string AccountsModuleImpl::extKeystoreImportExtendedKey(const std::string& extKeyStr, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreImportExtendedKey";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreImportExtendedKey\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -527,7 +518,7 @@ std::string AccountsModuleImpl::extKeystoreImportExtendedKey(const std::string& 
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtImportExtendedKey error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtImportExtendedKey error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -537,9 +528,9 @@ std::string AccountsModuleImpl::extKeystoreImportExtendedKey(const std::string& 
 
 std::string AccountsModuleImpl::extKeystoreExportExt(const std::string& address, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreExportExt";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreExportExt\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -549,7 +540,7 @@ std::string AccountsModuleImpl::extKeystoreExportExt(const std::string& address,
     if (extKey == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtExportExt error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtExportExt error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(extKey);
@@ -559,9 +550,9 @@ std::string AccountsModuleImpl::extKeystoreExportExt(const std::string& address,
 
 std::string AccountsModuleImpl::extKeystoreExportPriv(const std::string& address, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreExportPriv";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreExportPriv\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -571,7 +562,7 @@ std::string AccountsModuleImpl::extKeystoreExportPriv(const std::string& address
     if (privKey == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtExportPriv error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtExportPriv error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(privKey);
@@ -581,9 +572,9 @@ std::string AccountsModuleImpl::extKeystoreExportPriv(const std::string& address
 
 bool AccountsModuleImpl::extKeystoreDelete(const std::string& address, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreDelete";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreDelete\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -593,7 +584,7 @@ bool AccountsModuleImpl::extKeystoreDelete(const std::string& address, const std
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtDelete error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtDelete error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -601,9 +592,9 @@ bool AccountsModuleImpl::extKeystoreDelete(const std::string& address, const std
 
 bool AccountsModuleImpl::extKeystoreHasAddress(const std::string& address)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreHasAddress";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreHasAddress\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -612,7 +603,7 @@ bool AccountsModuleImpl::extKeystoreHasAddress(const std::string& address)
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtHasAddress error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtHasAddress error: %s\n", emsg.c_str());
         return false;
     }
     return result != 0;
@@ -620,9 +611,9 @@ bool AccountsModuleImpl::extKeystoreHasAddress(const std::string& address)
 
 bool AccountsModuleImpl::extKeystoreUnlock(const std::string& address, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreUnlock";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreUnlock\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -632,7 +623,7 @@ bool AccountsModuleImpl::extKeystoreUnlock(const std::string& address, const std
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtUnlock error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtUnlock error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -640,9 +631,9 @@ bool AccountsModuleImpl::extKeystoreUnlock(const std::string& address, const std
 
 bool AccountsModuleImpl::extKeystoreLock(const std::string& address)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreLock";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreLock\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -651,7 +642,7 @@ bool AccountsModuleImpl::extKeystoreLock(const std::string& address)
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtLock error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtLock error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -659,9 +650,9 @@ bool AccountsModuleImpl::extKeystoreLock(const std::string& address)
 
 bool AccountsModuleImpl::extKeystoreTimedUnlock(const std::string& address, const std::string& passphrase, uint64_t timeoutSeconds)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreTimedUnlock";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreTimedUnlock\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -672,7 +663,7 @@ bool AccountsModuleImpl::extKeystoreTimedUnlock(const std::string& address, cons
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtTimedUnlock error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtTimedUnlock error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -680,9 +671,9 @@ bool AccountsModuleImpl::extKeystoreTimedUnlock(const std::string& address, cons
 
 bool AccountsModuleImpl::extKeystoreUpdate(const std::string& address, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreUpdate";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreUpdate\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return false;
     }
     char* err = nullptr;
@@ -692,7 +683,7 @@ bool AccountsModuleImpl::extKeystoreUpdate(const std::string& address, const std
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtUpdate error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtUpdate error: %s\n", emsg.c_str());
         return false;
     }
     return true;
@@ -700,9 +691,9 @@ bool AccountsModuleImpl::extKeystoreUpdate(const std::string& address, const std
 
 std::string AccountsModuleImpl::extKeystoreSignHash(const std::string& address, const std::string& hashHex)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreSignHash";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreSignHash\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -712,7 +703,7 @@ std::string AccountsModuleImpl::extKeystoreSignHash(const std::string& address, 
     if (signature == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtSignHash error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtSignHash error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signature);
@@ -722,9 +713,9 @@ std::string AccountsModuleImpl::extKeystoreSignHash(const std::string& address, 
 
 std::string AccountsModuleImpl::extKeystoreSignHashWithPassphrase(const std::string& address, const std::string& passphrase, const std::string& hashHex)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreSignHashWithPassphrase";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreSignHashWithPassphrase\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -734,7 +725,7 @@ std::string AccountsModuleImpl::extKeystoreSignHashWithPassphrase(const std::str
     if (signature == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtSignHashWithPassphrase error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtSignHashWithPassphrase error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signature);
@@ -744,9 +735,9 @@ std::string AccountsModuleImpl::extKeystoreSignHashWithPassphrase(const std::str
 
 std::string AccountsModuleImpl::extKeystoreSignTx(const std::string& address, const std::string& txJSON, const std::string& chainIDHex)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreSignTx";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreSignTx\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -756,7 +747,7 @@ std::string AccountsModuleImpl::extKeystoreSignTx(const std::string& address, co
     if (signedTx == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtSignTx error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtSignTx error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signedTx);
@@ -766,9 +757,9 @@ std::string AccountsModuleImpl::extKeystoreSignTx(const std::string& address, co
 
 std::string AccountsModuleImpl::extKeystoreSignTxWithPassphrase(const std::string& address, const std::string& passphrase, const std::string& txJSON, const std::string& chainIDHex)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreSignTxWithPassphrase";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreSignTxWithPassphrase\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -779,7 +770,7 @@ std::string AccountsModuleImpl::extKeystoreSignTxWithPassphrase(const std::strin
     if (signedTx == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtSignTxWithPassphrase error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtSignTxWithPassphrase error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(signedTx);
@@ -789,9 +780,9 @@ std::string AccountsModuleImpl::extKeystoreSignTxWithPassphrase(const std::strin
 
 std::string AccountsModuleImpl::extKeystoreDerive(const std::string& address, const std::string& derivationPath, int64_t pin)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreDerive";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreDerive\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -801,7 +792,7 @@ std::string AccountsModuleImpl::extKeystoreDerive(const std::string& address, co
     if (derivedAddress == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtDerive error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtDerive error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(derivedAddress);
@@ -811,9 +802,9 @@ std::string AccountsModuleImpl::extKeystoreDerive(const std::string& address, co
 
 std::string AccountsModuleImpl::extKeystoreDeriveWithPassphrase(const std::string& address, const std::string& derivationPath, int64_t pin, const std::string& passphrase, const std::string& newPassphrase)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreDeriveWithPassphrase";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreDeriveWithPassphrase\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -824,7 +815,7 @@ std::string AccountsModuleImpl::extKeystoreDeriveWithPassphrase(const std::strin
     if (derivedAddress == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtDeriveWithPassphrase error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtDeriveWithPassphrase error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(derivedAddress);
@@ -834,9 +825,9 @@ std::string AccountsModuleImpl::extKeystoreDeriveWithPassphrase(const std::strin
 
 std::string AccountsModuleImpl::extKeystoreFind(const std::string& address, const std::string& url)
 {
-    qDebug() << "AccountsModuleImpl::extKeystoreFind";
+    fprintf(stderr, "AccountsModuleImpl::extKeystoreFind\n");
     if (extkeystoreHandle == 0) {
-        qWarning() << "AccountsModuleImpl: Ext keystore not initialized";
+        fprintf(stderr, "AccountsModuleImpl: Ext keystore not initialized\n");
         return {};
     }
     char* err = nullptr;
@@ -846,7 +837,7 @@ std::string AccountsModuleImpl::extKeystoreFind(const std::string& address, cons
     if (resultStr == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtFind error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtFind error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(resultStr);
@@ -858,14 +849,14 @@ std::string AccountsModuleImpl::extKeystoreFind(const std::string& address, cons
 
 std::string AccountsModuleImpl::createExtKeyFromMnemonic(const std::string& phrase, const std::string& passphrase)
 {
-    qDebug() << "AccountsModuleImpl::createExtKeyFromMnemonic";
+    fprintf(stderr, "AccountsModuleImpl::createExtKeyFromMnemonic\n");
     char* err = nullptr;
     char* extKey = GoWSK_accounts_keys_CreateExtKeyFromMnemonic(
         const_cast<char*>(phrase.c_str()), const_cast<char*>(passphrase.c_str()), &err);
     if (extKey == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: CreateExtKeyFromMnemonic error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: CreateExtKeyFromMnemonic error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(extKey);
@@ -875,14 +866,14 @@ std::string AccountsModuleImpl::createExtKeyFromMnemonic(const std::string& phra
 
 std::string AccountsModuleImpl::deriveExtKey(const std::string& extKeyStr, const std::string& pathStr)
 {
-    qDebug() << "AccountsModuleImpl::deriveExtKey";
+    fprintf(stderr, "AccountsModuleImpl::deriveExtKey\n");
     char* err = nullptr;
     char* derivedKey = GoWSK_accounts_keys_DeriveExtKey(
         const_cast<char*>(extKeyStr.c_str()), const_cast<char*>(pathStr.c_str()), &err);
     if (derivedKey == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: DeriveExtKey error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: DeriveExtKey error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(derivedKey);
@@ -892,14 +883,14 @@ std::string AccountsModuleImpl::deriveExtKey(const std::string& extKeyStr, const
 
 std::string AccountsModuleImpl::extKeyToECDSA(const std::string& extKeyStr)
 {
-    qDebug() << "AccountsModuleImpl::extKeyToECDSA";
+    fprintf(stderr, "AccountsModuleImpl::extKeyToECDSA\n");
     char* err = nullptr;
     char* ecdsaKey = GoWSK_accounts_keys_ExtKeyToECDSA(
         const_cast<char*>(extKeyStr.c_str()), &err);
     if (ecdsaKey == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ExtKeyToECDSA error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ExtKeyToECDSA error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(ecdsaKey);
@@ -909,14 +900,14 @@ std::string AccountsModuleImpl::extKeyToECDSA(const std::string& extKeyStr)
 
 std::string AccountsModuleImpl::ecdsaToPublicKey(const std::string& privateKeyECDSAStr)
 {
-    qDebug() << "AccountsModuleImpl::ecdsaToPublicKey";
+    fprintf(stderr, "AccountsModuleImpl::ecdsaToPublicKey\n");
     char* err = nullptr;
     char* publicKey = GoWSK_accounts_keys_ECDSAToPublicKey(
         const_cast<char*>(privateKeyECDSAStr.c_str()), &err);
     if (publicKey == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: ECDSAToPublicKey error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: ECDSAToPublicKey error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(publicKey);
@@ -926,14 +917,14 @@ std::string AccountsModuleImpl::ecdsaToPublicKey(const std::string& privateKeyEC
 
 std::string AccountsModuleImpl::publicKeyToAddress(const std::string& publicKeyStr)
 {
-    qDebug() << "AccountsModuleImpl::publicKeyToAddress";
+    fprintf(stderr, "AccountsModuleImpl::publicKeyToAddress\n");
     char* err = nullptr;
     char* address = GoWSK_accounts_keys_PublicKeyToAddress(
         const_cast<char*>(publicKeyStr.c_str()), &err);
     if (address == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: PublicKeyToAddress error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: PublicKeyToAddress error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(address);
@@ -945,13 +936,13 @@ std::string AccountsModuleImpl::publicKeyToAddress(const std::string& publicKeyS
 
 std::string AccountsModuleImpl::createRandomMnemonic(int64_t length)
 {
-    qDebug() << "AccountsModuleImpl::createRandomMnemonic" << length;
+    fprintf(stderr, "AccountsModuleImpl::createRandomMnemonic %lld\n", (long long)length);
     char* err = nullptr;
     char* mnemonic = GoWSK_accounts_mnemonic_CreateRandomMnemonic(static_cast<int>(length), &err);
     if (mnemonic == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: CreateRandomMnemonic error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: CreateRandomMnemonic error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(mnemonic);
@@ -961,13 +952,13 @@ std::string AccountsModuleImpl::createRandomMnemonic(int64_t length)
 
 std::string AccountsModuleImpl::createRandomMnemonicWithDefaultLength()
 {
-    qDebug() << "AccountsModuleImpl::createRandomMnemonicWithDefaultLength";
+    fprintf(stderr, "AccountsModuleImpl::createRandomMnemonicWithDefaultLength\n");
     char* err = nullptr;
     char* mnemonic = GoWSK_accounts_mnemonic_CreateRandomMnemonicWithDefaultLength(&err);
     if (mnemonic == nullptr) {
         std::string emsg = err ? std::string(err) : "unknown error";
         if (err) GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: CreateRandomMnemonicWithDefaultLength error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: CreateRandomMnemonicWithDefaultLength error: %s\n", emsg.c_str());
         return {};
     }
     std::string result(mnemonic);
@@ -977,13 +968,13 @@ std::string AccountsModuleImpl::createRandomMnemonicWithDefaultLength()
 
 int64_t AccountsModuleImpl::lengthToEntropyStrength(int64_t length)
 {
-    qDebug() << "AccountsModuleImpl::lengthToEntropyStrength" << length;
+    fprintf(stderr, "AccountsModuleImpl::lengthToEntropyStrength %lld\n", (long long)length);
     char* err = nullptr;
     uint32_t result = GoWSK_accounts_mnemonic_LengthToEntropyStrength(static_cast<int>(length), &err);
     if (err != nullptr) {
         std::string emsg(err);
         GoWSK_FreeCString(err);
-        qWarning() << "AccountsModuleImpl: LengthToEntropyStrength error:" << emsg.c_str();
+        fprintf(stderr, "AccountsModuleImpl: LengthToEntropyStrength error: %s\n", emsg.c_str());
         return 0;
     }
     return static_cast<int64_t>(result);

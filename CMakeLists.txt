@@ -28,6 +28,8 @@ logos_module(
         ${CMAKE_CURRENT_SOURCE_DIR}/generated_code
 )
 
+# nlohmann/json — header-only, nix adds -isystem for buildInputs automatically
+
 # go-wallet-sdk static library (requires whole-archive for Go runtime initialization)
 find_library(LIBGOWALLETSDK
     NAMES libgowalletsdk.a libgowalletsdk.lib
