@@ -27,15 +27,12 @@
           fi
         done
 
-        # Run LIDL generator to produce Qt glue
+        # Run LIDL generator to produce Qt glue + plugin loader
         logos-cpp-generator --lidl accounts_module.lidl \
           --backend qt \
           --impl-class AccountsModuleImpl \
           --impl-header accounts_module_impl.h \
           --output-dir ./generated_code
-
-        # Remove generated Plugin class (we use our own loader)
-        sed -i '/^class AccountsModulePlugin/,/^};$/d' generated_code/accounts_module_qt_glue.h
       '';
     };
 }

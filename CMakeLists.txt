@@ -18,7 +18,6 @@ logos_module(
     SOURCES
         src/accounts_module_impl.h
         src/accounts_module_impl.cpp
-        src/accounts_module_loader.h
         generated_code/accounts_module_qt_glue.h
         generated_code/accounts_module_dispatch.cpp
     FIND_PACKAGES
