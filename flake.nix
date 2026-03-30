@@ -2,7 +2,7 @@
   description = "Logos Accounts Module - An accounts plugin for Logos";
 
   inputs = {
-    logos-module-builder.url = "github:logos-co/logos-module-builder";
+    logos-module-builder.url = "github:logos-co/logos-module-builder/use_experimental_backend";
     nix-bundle-lgx.url = "github:logos-co/nix-bundle-lgx";
     go-wallet-sdk = {
       url = "github:status-im/go-wallet-sdk/0938a704506b0ff444378045d17be9e19e699d80";
