@@ -4,6 +4,7 @@
   "description": "Accounts module using go-wallet-sdk C library",
   "author": "Logos Core Team",
   "type": "core",
+  "interface": "universal",
   "category": "accounts",
   "main": "accounts_module_plugin",
   "dependencies": [],
@@ -19,6 +20,9 @@
         "output_pattern": "build/libgowalletsdk.*"
       }
     ],
+    "packages": {
+      "runtime": ["nlohmann_json"]
+    },
     "cmake": {
       "find_packages": ["Threads"],
       "extra_include_dirs": ["lib"]
