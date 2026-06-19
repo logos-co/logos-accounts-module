@@ -1,5 +1,6 @@
 {
   "name": "accounts_module",
+  "display_name": "Accounts Module",
   "version": "1.0.0",
   "description": "Accounts module using go-wallet-sdk C library",
   "author": "Logos Core Team",
